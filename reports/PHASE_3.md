@@ -85,3 +85,5 @@ retrieved source records. No successful live LLM evidence currently exists.
 Official documentation used:
 https://developers.openai.com/api/docs/guides/function-calling
 https://developers.openai.com/api/docs/models/gpt-5.4-mini
+
+Implementation checkpoint: `f77c7ac` (local only).

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: jobcompass
+      POSTGRES_DB: jobcompass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment or .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobcompass -d jobcompass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8765:8000"
+    environment:
+      DATABASE_URL: postgresql://jobcompass:${POSTGRES_PASSWORD}@db:5432/jobcompass
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+  refresh:
+    build: .
+    command: ["python", "-m", "jobcompass.worker", "--semantic"]
+    environment:
+      DATABASE_URL: postgresql://jobcompass:${POSTGRES_PASSWORD}@db:5432/jobcompass
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:

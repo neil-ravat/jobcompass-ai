@@ -41,6 +41,13 @@ class SearchParams(BaseModel):
         except LookupError:
             raise ValueError("Use an ISO country code or recognized country name") from None
 
+    @field_validator("q", "role")
+    @classmethod
+    def contains_terms(cls, value):
+        if value is not None and not re.search(r"\w", value):
+            raise ValueError("Must contain a searchable word")
+        return value
+
     @field_validator("currency")
     @classmethod
     def valid_currency(cls, value):
@@ -108,7 +115,7 @@ def filter_jobs(records, params, now=None, keyword_mode="all"):
         if not current_job(row, now):
             continue
         # Himalayas advertises remote jobs; this does not imply worldwide eligibility.
-        remote = row.get("remote_type") == "remote" or row.get("source") == "himalayas"
+        remote = row["remote_type"] == "remote" if row.get("remote_type") is not None else row.get("source") == "himalayas"
         if params.remote_only and not remote:
             continue
         eligibility = country_eligibility(row, params.country)
@@ -116,14 +123,16 @@ def filter_jobs(records, params, now=None, keyword_mode="all"):
             continue
         if role and not role <= tokens(row.get("title", "")):
             continue
+        if params.currency and row.get("currency") != params.currency:
+            continue
+        if params.salary_period and row.get("salary_period") != params.salary_period:
+            continue
         if params.min_salary is not None:
             try:
                 amount = Decimal(str(row.get("salary_min")))
                 if not amount.is_finite() or amount < params.min_salary:
                     continue
             except (InvalidOperation, ValueError):
-                continue
-            if row.get("currency") != params.currency or row.get("salary_period") != params.salary_period:
                 continue
         document = tokens(" ".join([row.get("title", ""), description_text(row), " ".join(row.get("categories") or [])]))
         if query and keyword_mode == "all" and not query <= document:

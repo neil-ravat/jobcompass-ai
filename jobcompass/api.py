@@ -11,7 +11,7 @@ from .store import StoreUnavailable, load_snapshot
 from .semantic import SemanticUnavailable, recommend_semantic
 from .agent import AgentRequest, AgentUnavailable, InvalidToolCall, interpret_query
 
-app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations.")
+app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations. Jobs sourced from [Himalayas](https://himalayas.app). Apply using each original application_url.")
 
 
 @app.exception_handler(AgentUnavailable)
@@ -59,6 +59,8 @@ def serialize_page(snapshot, params, ranked, mode="deterministic"):
         "items": items, "total": len(ranked), "limit": params.limit, "offset": params.offset, "mode": mode,
         "attribution": snapshot["attribution"], "feed_fetched_at": snapshot["feed_fetched_at"],
         "feed_complete": snapshot["feed_complete"],
+        "data_quality": {"status_errors": len(snapshot.get("status_errors", [])),
+                         "rejected_records": len(snapshot.get("rejected_records", []))},
         "rules": {"country": "Unknown eligibility is excluded when country is requested; timezone rules are returned, not inferred.",
                   "salary": "Reported minimum must meet the requested floor in the same currency and pay period.",
                   "score": "70 * positive cosine similarity + 0.3 * lexical score" if mode == "hybrid" else "60 title + 30 description + 10 categories, scaled by matched query terms."},

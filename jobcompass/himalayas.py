@@ -19,6 +19,10 @@ _last_request_at = None
 class RetryDeferred(requests.RequestException):
     """The source asked us to wait longer than this short CLI run allows."""
 
+    def __init__(self, message, retry_after=None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
 
 def _wait_for_slot():
     global _last_request_at
@@ -45,7 +49,7 @@ def _retry_delay(response, attempt):
     else:
         delay = 2**attempt + random.uniform(0, 0.25)
     if delay > MAX_RETRY_WAIT:
-        raise RetryDeferred(f"Source requested a {delay:.0f}s wait; try again later.")
+        raise RetryDeferred(f"Source requested a {delay:.0f}s wait; try again later.", retry_after=delay)
     return delay
 
 

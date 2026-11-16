@@ -76,3 +76,24 @@ def test_semantic_missing_query_or_model_is_explicit(client, monkeypatch):
     assert response.status_code == 503
     assert response.json()["code"] == "semantic_unavailable"
     assert client.get("/recommendations?q=python").status_code == 200
+
+
+def test_all_unverified_is_not_disguised_as_empty_success(client, tmp_path):
+    path = tmp_path / "jobs.json"
+    snapshot = json.loads(path.read_text())
+    snapshot["records"][0].update(is_active=False, status="unverified")
+    snapshot["status_errors"] = [{"reason": "source timeout"}]
+    path.write_text(json.dumps(snapshot))
+    assert client.get("/jobs").status_code == 503
+
+
+def test_partial_status_failure_remains_visible(client, tmp_path):
+    path = tmp_path / "jobs.json"
+    snapshot = json.loads(path.read_text())
+    unknown = {**snapshot["records"][0], "source_id": "test-only-unknown", "is_active": False, "status": "unverified"}
+    snapshot["records"].append(unknown)
+    snapshot["status_errors"] = [{"source_id": unknown["source_id"], "reason": "source timeout"}]
+    path.write_text(json.dumps(snapshot))
+    response = client.get("/jobs")
+    assert response.status_code == 200 and response.json()["total"] == 1
+    assert response.json()["data_quality"]["status_errors"] == 1

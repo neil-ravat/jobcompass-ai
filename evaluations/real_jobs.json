@@ -1,0 +1,62 @@
+{
+  "source": "himalayas",
+  "label_source": "Codex-assigned relevance judgments from the observed title, categories and job description; not independently human-reviewed.",
+  "rubric": {
+    "0": "Not relevant or country-ineligible",
+    "1": "Marginal relevance",
+    "2": "Relevant",
+    "3": "Direct role/skills match"
+  },
+  "corpus": {
+    "https://himalayas.app/companies/internations/jobs/senior-full-stack-engineer": "001bf50a3710ac8862eb600a5af9a2c72f7d8ce15a4a263f93bb9fc62ce7a743",
+    "https://himalayas.app/companies/schneider-electric-cn/jobs/manager-systems-engineering": "be6ae06b2b6f78799e36b402a5230851b7d019c35cf0af7db68c1efb533f9dbc",
+    "https://himalayas.app/companies/yadimen-consulting-limited/jobs/redwood-automation-solution-designer-runmyjobs-sap-bpa-sap-finance-close-s-70927214": "4c60280db036c3c82dfce33e945de863cd6a836e753f7b1bfd391f090718be70"
+  },
+  "cases": [
+    {
+      "id": "web_development",
+      "params": {
+        "q": "frontend web developer"
+      },
+      "relevance": {
+        "https://himalayas.app/companies/internations/jobs/senior-full-stack-engineer": 3,
+        "https://himalayas.app/companies/schneider-electric-cn/jobs/manager-systems-engineering": 0,
+        "https://himalayas.app/companies/yadimen-consulting-limited/jobs/redwood-automation-solution-designer-runmyjobs-sap-bpa-sap-finance-close-s-70927214": 0
+      }
+    },
+    {
+      "id": "technical_sales",
+      "params": {
+        "q": "technical sales team leadership"
+      },
+      "relevance": {
+        "https://himalayas.app/companies/internations/jobs/senior-full-stack-engineer": 0,
+        "https://himalayas.app/companies/schneider-electric-cn/jobs/manager-systems-engineering": 3,
+        "https://himalayas.app/companies/yadimen-consulting-limited/jobs/redwood-automation-solution-designer-runmyjobs-sap-bpa-sap-finance-close-s-70927214": 0
+      }
+    },
+    {
+      "id": "sap_automation",
+      "params": {
+        "q": "SAP finance close automation"
+      },
+      "relevance": {
+        "https://himalayas.app/companies/internations/jobs/senior-full-stack-engineer": 0,
+        "https://himalayas.app/companies/schneider-electric-cn/jobs/manager-systems-engineering": 0,
+        "https://himalayas.app/companies/yadimen-consulting-limited/jobs/redwood-automation-solution-designer-runmyjobs-sap-bpa-sap-finance-close-s-70927214": 3
+      }
+    },
+    {
+      "id": "no_eligible_india_jobs",
+      "params": {
+        "q": "web developer",
+        "country": "IN"
+      },
+      "relevance": {
+        "https://himalayas.app/companies/internations/jobs/senior-full-stack-engineer": 0,
+        "https://himalayas.app/companies/schneider-electric-cn/jobs/manager-systems-engineering": 0,
+        "https://himalayas.app/companies/yadimen-consulting-limited/jobs/redwood-automation-solution-designer-runmyjobs-sap-bpa-sap-finance-close-s-70927214": 0
+      }
+    }
+  ]
+}

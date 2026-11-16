@@ -1,99 +1,230 @@
 # JobCompass
 
-Milestone 1 is implemented: a small Python backend ingests real Himalayas jobs,
-normalizes them, checks their status, and saves a local snapshot. No application
-records are fabricated; synthetic responses exist only in offline tests.
+A working local job-recommendation backend using **real Himalayas listings**.
+It combines FastAPI, explicit eligibility filters, explainable ranking,
+PostgreSQL/pgvector, and local MiniLM semantic retrieval. An optional OpenAI tool
+interprets natural-language queries; Python still enforces constraints.
 
-On 17 November 2026 the user asked Codex to implement one milestone at a time,
-with explanations to follow. See [the plan](IMPLEMENTATION_PLAN.md) and the
-[Milestone 1 report for ChatGPT](MILESTONE_1_REPORT.md).
+**Verified:** 136 tests passed, including four real PostgreSQL tests. Live API,
+source ingestion, database writes, and semantic retrieval were exercised with
+three real jobs. The optional LLM success path is **not live-verified** because
+no key is configured. Docker configuration was validated, not built or deployed.
 
-## Run
+## Open the running demo
 
-From this directory:
+- API docs: http://127.0.0.1:8765/docs
+- Health/readiness: http://127.0.0.1:8765/health
+- Local PostgreSQL: localhost:55432, database `jobcompass`.
+
+The native demo and refresh worker were started during verification. For a new
+terminal/session, the commands below reproduce the setup. Run one refresh worker
+per data directory; concurrent ingestion writers are not supported.
+
+## Install and run without PostgreSQL
+
+Python 3.14.2 was used for verification; the project declares Python >=3.11.
 
 ```bash
-uv sync --locked
+cd /Users/neil/Documents/ChatGPT/jobcompass
+uv sync --locked --all-extras
+unset DATABASE_URL
+bash scripts/demo.sh
+```
+
+The launcher performs one real ingestion/status refresh, builds or reuses local
+embeddings, then runs the API and a five-minute refresh worker. First-time semantic
+setup downloads the MiniLM ONNX weights. Later inference runs locally. Ctrl+C in
+the launcher terminal stops the API and its worker.
+
+The first captured feed contains three jobs. The normal refresh configuration is
+20 jobs on one page; it takes effect at the next daily feed refresh. Output always
+reports the actual cached scope. No sample or fabricated job records are loaded.
+
+## Run with PostgreSQL
+
+This machine already has PostgreSQL 16.14 and pgvector 0.8.2 installed, an isolated
+cluster at `data/postgres`, and application/test databases. To reuse it:
+
+```bash
+export DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass
+.venv/bin/python -m jobcompass.manage migrate
+bash scripts/demo.sh
+```
+
+For a fresh native installation with PostgreSQL 16 and pgvector available, initialize
+only a **new** project cluster and create the databases:
+
+```bash
+mkdir -p data
+initdb -D data/postgres --username=jobcompass --auth-local=trust --auth-host=trust --encoding=UTF8 --locale=C
+pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
+createdb -h 127.0.0.1 -p 55432 -U jobcompass jobcompass
+createdb -h 127.0.0.1 -p 55432 -U jobcompass jobcompass_test
+```
+
+The native cluster uses loopback-only development trust authentication. The container
+configuration below uses a password. To stop the native database later:
+`pg_ctl -D data/postgres stop`.
+
+`migrate` applies transactional, checksum-verified SQL migrations. With DATABASE_URL
+set, ingestion upserts PostgreSQL and API reads use PostgreSQL. Connection failures
+are explicit; they do not silently switch the API to JSON.
+
+## Try the endpoints
+
+```bash
+curl 'http://127.0.0.1:8765/jobs?limit=1&offset=0'
+curl 'http://127.0.0.1:8765/recommendations?q=engineer&country=ES'
+curl 'http://127.0.0.1:8765/search?q=frontend%20web%20developer&country=ES'
+```
+
+| Endpoint | Behavior |
+| --- | --- |
+| GET /health | Liveness and data readiness; exposes no credentials. |
+| GET /jobs | Hard constraints, all keyword tokens, stable pagination. |
+| GET /recommendations | Hard constraints, at least one keyword match, lexical scores. |
+| GET /search | Hard constraints, semantic retrieval and hybrid scores; q required. |
+| POST /agent/query | Optional LLM intent extraction followed by the same Python search. |
+
+Search parameters: `q`, `role`, `country`, `remote_only`, `min_salary`, `currency`,
+`salary_period`, `limit` (1–100), and `offset`. Country accepts ISO codes or recognized
+names. Currency uses ISO codes; pay periods are hourly, weekly, fortnightly,
+monthly or annual. A salary floor requires currency and period.
+
+Rules:
+
+- Unknown country eligibility is excluded when a country is requested. Empty
+  source restrictions mean unrestricted; missing restrictions mean unknown.
+- Country checks do not determine work authorization or timezone compatibility.
+  Those source restrictions remain visible. Remote means advertised as remote by
+  the source, not that there are no location or travel requirements.
+- Role tokens must occur in the title. Salary minimums must be known and meet the
+  requested floor in matching units; no FX conversion or inferred offer is used.
+- Lexical score: 60 title + 30 description + 10 categories, scaled by the fraction
+  of query tokens matched in each field. Hybrid score: 70 × positive cosine
+  similarity + 0.3 × lexical score. These scores are not hiring probabilities.
+- Equal scores are ordered by source update time, then source identity. Rank
+  pagination preserves this ordering.
+
+Responses include original application URLs, source attribution, score components,
+country eligibility and freshness. Invalid requests return 422; genuine empty
+matches return 200 with an empty list; unavailable/stale data returns 503.
+
+## Optional LLM workflow
+
+Set OPENAI_API_KEY in your local environment and, optionally, OPENAI_MODEL (default
+`gpt-5.4-mini`). No credentials are needed for the core API or local embeddings.
+The application does not automatically load .env; export variables yourself.
+
+```bash
+curl -X POST http://127.0.0.1:8765/agent/query \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Find frontend web developer jobs","constraints":{"country":"ES"},"mode":"hybrid"}'
+```
+
+The model receives the query and supplied constraints, not the job corpus. One
+strict `search_jobs` tool call is validated; explicit user constraints are applied
+again before searching. The response shows `interpreted_query` and source-grounded
+results. Without a key, this endpoint returns 503 `llm_unavailable`; malformed
+provider tool output returns 502. A successful live provider call and extraction
+quality remain unverified. [Official function-calling documentation](https://developers.openai.com/api/docs/guides/function-calling)
+
+## Tests and measured evaluation
+
+```bash
 .venv/bin/python -m pytest -q
-.venv/bin/python -m jobcompass --limit 3 --max-pages 1
+TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/bin/python -m pytest -q
+.venv/bin/python -m jobcompass.evaluate --k 1
+.venv/bin/python -m jobcompass.evaluate --k 3
 ```
 
-Without flags, the CLI requests up to 20 jobs on one page. `--max-pages` caps
-pagination, and `--data-dir` chooses the output directory (default: `data/`).
-Use a single process and the same directory so routine runs share the cache.
+Without TEST_DATABASE_URL, four database tests skip. With the isolated database:
+**136 passed**. One upstream Starlette/httpx deprecation warning remains. Database
+tests require a database name ending in `_test` and clear only their test tables.
+Source and LLM traffic is mocked in tests; separate live checks are documented in
+[the handoffs](reports/PHASE_4.md).
 
-No key is required for this initial integration. An optional `HIMALAYAS_API_KEY`
-environment variable enables server-side authentication. Never commit keys or
-put them in URLs. Ignored `.env` files are not loaded automatically.
-[Himalayas API reference](https://himalayas.app/docs/remote-jobs-api)
+`evaluations/real_jobs.json` contains Codex-assigned relevance judgments over three
+real listings: three positive queries and one country-ineligible query. Labels
+are **not independently human-reviewed**. Corpus fingerprints prevent silently
+reusing labels after the job text changes. Evaluation uses the recorded snapshot
+check time and averages relevance metrics only over queries with positive labels.
 
-## Output and freshness
+| Ranking mode | Precision@1 | NDCG@1 | Precision@3 | NDCG@3 |
+| --- | --- | --- | --- | --- |
+| Deterministic | 1.000 | 1.000 | 0.333 | 1.000 |
+| Hybrid | 1.000 | 1.000 | 0.333 | 1.000 |
 
-- `data/himalayas-feed.json`: real raw feed, fetch time, and effective page scope.
-- `data/jobs.json`: normalized records, source credit, counts, diagnostics,
-  source identity, original application links, and UTC status timestamps.
-- The original Day 1 response and headers remain separate inspection evidence;
-  the application never loads them as fixtures or fallback data.
+Both modes returned no jobs for the negative India case. Precision uses k as its
+denominator even with fewer returned records. This tiny, deliberately labeled
+sample is a sanity check, **not a production-quality benchmark or evidence that
+semantic retrieval outperforms lexical ranking**. Outputs are in
+`data/evaluation-k1.json` and `data/evaluation-k3.json`.
 
-The whole `data/` folder is ignored by Git. Feed requests reuse their cache for
-24 hours. Page flags apply at the next feed refresh; output reports the effective
-cached scope. Per-job status is checked again after ten minutes. Expiry is
-checked on every run. [Refresh documentation](https://himalayas.app/docs/remote-jobs-api)
+## Data freshness and source use
 
-`is_active` describes status at the recorded check time, not a permanent
-promise. Run ingestion before consuming an old snapshot. A future UI must check
-freshness rather than display old JSON blindly. Closed/expired records remain
-in local history as inactive; unknown status is also withheld from active results.
-A partial feed never causes missing records to be marked closed.
+The feed is cached for 24 hours; individual status checks for ten minutes. The
+worker wakes every five minutes and reuses these caches. Expiry is checked every
+run. Long Retry-After delays extend the worker's sleep. Missing jobs are retired
+only after a complete, valid traversal. Partial runs and failed refreshes cannot
+mass-close stored records. Runtime snapshots, model weights, and database files
+are ignored by Git.
 
-```bash
-.venv/bin/python -m json.tool data/jobs.json
-```
+Every display must visibly credit/link to Himalayas and every Apply action must
+retain the supplied application URL. Do not redistribute source records to other
+boards, aggregators or JobPosting feeds. [API documentation](https://himalayas.app/docs/remote-jobs-api),
+[API terms](https://himalayas.app/terms). Greenhouse and Adzuna are deferred.
 
-Exit codes: `0` successful run, `1` failed run, `2` saved result with rejected
-records or unsuccessful status checks. Failed refreshes preserve the previous
-snapshot without reporting it as fresh. If the source requests a long delay,
-the run stops; wait for that delay before retrying.
-
-## Code map
+## Architecture and model
 
 ```text
-jobcompass/
-  __main__.py       CLI, counts, exit codes
-  himalayas.py      HTTP, bounded retries, cursors, per-job status
-  models.py         typed Job dataclass and JSON conversion
-  normalize.py      pure record validation and normalization
-  ingest.py         caching, deduplication, status checks, atomic local upserts
-tests/              offline contract and failure checks
+Himalayas APIs → validation/normalization → JSON + optional PostgreSQL
+                                           ↓
+                           MiniLM embeddings → local index / pgvector
+                                           ↓
+FastAPI → hard constraints → lexical or hybrid ranking → grounded results
+          ↑
+optional LLM intent parser (validated tool arguments)
 ```
 
-Flow: CLI → feed → normalize → deduplicate → verify status → save.
-No web server, database service, or scheduler is needed for this milestone.
+Model: `sentence-transformers/all-MiniLM-L6-v2`, FastEmbed/ONNX, 384 dimensions,
+English, Apache-2.0, 256-token truncation. FastEmbed uses the
+`Qdrant/all-MiniLM-L6-v2-onnx` artifact. Title and categories come before truncated
+long descriptions. Model identity and document hashes guard index compatibility.
+Weights used in verification had SHA256:
+`bbd7b466f6d58e646fdc2bd5fd67b2f5e93c0b687011bd4548c420f7bd46f0c5`.
+[Model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
 
-## Storage contract
+PostgreSQL stores typed normalized fields and raw provenance. pgvector uses exact
+cosine search over already eligible IDs. There is no approximate index or ORM.
+Read [the interview walkthrough](docs/INTERVIEW.md) for function-level explanations.
 
-Identity is `(source, source_id)`. Himalayas `guid` and `applicationLink` are
-preserved, including URL query parameters. Upserts retain `first_seen_at`.
-Cross-source fuzzy deduplication is deferred.
+## Container configuration
 
-Missing optional values stay unknown. Empty restriction arrays remain distinct
-from missing fields. Locations become objects with a name and optional country
-code; timezones become numeric UTC offsets. Both observed and documented schema
-variants are supported. Salaries use Decimal in Python and exact decimal strings
-in JSON; currency and pay period remain separate. Datetimes are UTC-aware and
-serialize to ISO 8601. Invalid optional fields produce validation diagnostics;
-invalid required fields reject the record. Raw source payloads are retained.
+Dockerfile and compose.yaml are included. `docker compose config --quiet` passed
+with a validation-only placeholder password. **The image was not built and the
+container stack was not launched; no remote deployment is claimed.**
 
-For later PostgreSQL storage: use a composite unique key on source/ID, NUMERIC
-for salaries, TIMESTAMPTZ for dates, and JSONB for restrictions, diagnostics,
-and raw payload. PostgreSQL is not connected in this milestone.
+For an optional container run, stop the native demo first, set a URL-safe
+POSTGRES_PASSWORD in the environment or ignored .env, then:
 
-## Source use
+```bash
+docker compose build
+docker compose up -d db
+docker compose run --rm api python -m jobcompass.manage migrate
+docker compose run --rm api python -m jobcompass.worker --once --semantic
+docker compose up -d api refresh
+```
 
-Credit and link to Himalayas visibly, and use each original application URL for
-Apply actions. Do not redistribute their jobs to third-party boards, aggregators,
-or JobPosting feeds. [API terms](https://himalayas.app/terms)
+## Remaining limits
 
-Greenhouse is the planned secondary source, subject to board-specific reuse
-checks. Adzuna remains optional pending credentials and permission. Neither is
-implemented yet. No website scraping is used.
+Only three live records were used for verification. The next daily refresh uses
+the worker's configured 20-job page. Full-feed scale, broader relevance judgments,
+LLM inference quality and production deployment are unverified. This is a local,
+single-writer MVP without application authentication, distributed scheduling,
+resume uploads or job-application automation. Do not expose it publicly without a
+separate deployment review.
+
+Milestone reports: [M1](MILESTONE_1_REPORT.md), [P1](reports/PHASE_1.md),
+[P2](reports/PHASE_2.md), [P3](reports/PHASE_3.md), [P4](reports/PHASE_4.md).
+All implementation code was generated by Codex under the user's direction.

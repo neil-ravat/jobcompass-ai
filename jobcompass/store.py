@@ -34,6 +34,8 @@ def load_snapshot():
                     for key in ("source", "source_id", "title", "company", "application_url")):
                 raise ValueError("Invalid normalized job")
         open_rows = [row for row in snapshot["records"] if row.get("is_active")]
+        if snapshot.get("status_errors") and not any(current_job(row, now) for row in snapshot["records"]):
+            raise StoreUnavailable("Job status verification failed. Run python -m jobcompass to retry.")
         if open_rows and not any(current_job(row, now) for row in open_rows):
             raise StoreUnavailable("Job status needs refreshing. Run python -m jobcompass.")
         return snapshot

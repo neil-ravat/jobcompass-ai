@@ -34,7 +34,7 @@ def test_salary_constraint_requires_known_matching_units(row, now):
 
 
 @pytest.mark.parametrize("kwargs", [{"country": "Atlantis"}, {"q": " "}, {"limit": 101},
-    {"offset": -1}, {"min_salary": 10}, {"min_salary": "NaN"}, {"currency": "ZZZ"}, {"oops": True}])
+    {"offset": -1}, {"min_salary": 10}, {"min_salary": "NaN"}, {"currency": "ZZZ"}, {"oops": True}, {"q": "!!!"}])
 def test_invalid_constraints(kwargs):
     with pytest.raises(ValidationError):
         SearchParams(**kwargs)
@@ -63,3 +63,14 @@ def test_expired_closed_and_stale_rows_are_excluded(row, now):
                {"status_checked_at": (now - timedelta(minutes=11)).isoformat()}]
     for change in changes:
         assert not filter_jobs([{**row, **change}], SearchParams(), now)
+
+
+def test_currency_and_period_are_constraints_even_without_floor(row, now):
+    assert not filter_jobs([row], SearchParams(currency="USD"), now)
+    row.update(currency="USD", salary_period="annual")
+    assert filter_jobs([row], SearchParams(currency="USD", salary_period="annual"), now)
+    assert not filter_jobs([row], SearchParams(salary_period="hourly"), now)
+
+
+def test_explicit_nonremote_status_overrides_remote_source(row, now):
+    assert not filter_jobs([{**row, "remote_type": "onsite"}], SearchParams(), now)

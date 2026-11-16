@@ -88,3 +88,24 @@ def test_agent_empty_retrieval_is_grounded(provider, monkeypatch, now):
         assert response.status_code == 200
         assert response.json()["results"]["items"] == []
         assert response.json()["tool"] == "search_jobs"
+
+
+def test_agent_returns_retrieved_job_with_locked_country(provider, monkeypatch, raw_job):
+    from datetime import datetime, timedelta, timezone
+    from jobcompass.normalize import normalize_job
+
+    now = datetime.now(timezone.utc)
+    raw_job["expiryDate"] = int((now + timedelta(days=1)).timestamp())
+    row = {**normalize_job(raw_job, now).to_record(), "status": "open", "is_active": True, "status_checked_at": now.isoformat()}
+    snapshot = {"records": [row], "attribution": {"label": "Himalayas", "url": "https://himalayas.app"},
+                "feed_fetched_at": now.isoformat(), "feed_complete": False}
+    monkeypatch.setattr(api, "load_snapshot", lambda: snapshot)
+    with TestClient(api.app) as client:
+        response = client.post("/agent/query", json={"message": "python roles", "constraints": {"country": "IN"}})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["interpreted_query"]["country"] == "IN"
+    assert body["results"]["total"] == 1
+    assert body["results"]["items"][0]["application_url"] == raw_job["applicationLink"]
+    assert body["results"]["items"][0]["title"] == raw_job["title"]
+    assert raw_job["title"] not in json.dumps(provider[0].call_args.kwargs["json"])
