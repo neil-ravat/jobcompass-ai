@@ -144,6 +144,10 @@ def rank_jobs(records, query=None):
                       for key, weight in (("title", 60), ("description", 30), ("categories", 10))}
         result.append({**row, "score": round(sum(components.values()), 6), "score_components": components,
                        "matched_terms": sorted(query_tokens & set.union(*fields.values()))})
+    return sort_ranked(result)
+
+
+def sort_ranked(result):
     # Stable across source order and repeated queries, including equal scores/dates.
     result.sort(key=lambda row: (row["source"], row["source_id"]))
     result.sort(key=lambda row: row.get("source_updated_at") or "", reverse=True)

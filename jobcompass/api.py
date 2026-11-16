@@ -1,14 +1,21 @@
 """Read-only FastAPI service over the ingestion snapshot."""
 
 from typing import Annotated
+import os
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from .search import SearchParams, filter_jobs, rank_jobs
 from .store import StoreUnavailable, load_snapshot
+from .semantic import SemanticUnavailable, recommend_semantic
 
 app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations.")
+
+
+@app.exception_handler(SemanticUnavailable)
+async def semantic_unavailable(request, error):
+    return JSONResponse(status_code=503, content={"detail": str(error), "code": "semantic_unavailable"})
 
 
 @app.exception_handler(StoreUnavailable)
@@ -18,27 +25,32 @@ async def unavailable(request, error):
 
 @app.get("/health")
 def health():
+    storage = "postgresql" if os.environ.get("DATABASE_URL") else "json"
     try:
         snapshot = load_snapshot()
-        return {"status": "ok", "ready": True, "storage": "json", "stored_jobs": len(snapshot["records"])}
+        return {"status": "ok", "ready": True, "storage": storage, "stored_jobs": len(snapshot["records"])}
     except StoreUnavailable as error:
-        return {"status": "ok", "ready": False, "storage": "json", "detail": str(error)}
+        return {"status": "ok", "ready": False, "storage": storage, "detail": str(error)}
 
 
 def result_page(snapshot, params, recommendations=False):
     records = filter_jobs(snapshot["records"], params, keyword_mode="any" if recommendations else "all")
     ranked = rank_jobs(records, params.q)
+    return serialize_page(snapshot, params, ranked)
+
+
+def serialize_page(snapshot, params, ranked, mode="deterministic"):
     items = []
     for row in ranked[params.offset:params.offset + params.limit]:
         # Serve normalized evidence; avoid shipping full raw HTML/provider payloads.
         items.append({key: value for key, value in row.items() if key not in {"raw_payload", "description_html"}})
     return {
-        "items": items, "total": len(ranked), "limit": params.limit, "offset": params.offset,
+        "items": items, "total": len(ranked), "limit": params.limit, "offset": params.offset, "mode": mode,
         "attribution": snapshot["attribution"], "feed_fetched_at": snapshot["feed_fetched_at"],
         "feed_complete": snapshot["feed_complete"],
         "rules": {"country": "Unknown eligibility is excluded when country is requested; timezone rules are returned, not inferred.",
                   "salary": "Reported minimum must meet the requested floor in the same currency and pay period.",
-                  "score": "60 title + 30 description + 10 categories, scaled by matched query terms."},
+                  "score": "70 * positive cosine similarity + 0.3 * lexical score" if mode == "hybrid" else "60 title + 30 description + 10 categories, scaled by matched query terms."},
     }
 
 
@@ -50,3 +62,10 @@ def jobs(params: Annotated[SearchParams, Query()], snapshot: dict = Depends(load
 @app.get("/recommendations")
 def recommendations(params: Annotated[SearchParams, Query()], snapshot: dict = Depends(load_snapshot)):
     return result_page(snapshot, params, recommendations=True)
+
+
+@app.get("/search")
+def semantic_search(params: Annotated[SearchParams, Query()], snapshot: dict = Depends(load_snapshot)):
+    if not params.q:
+        raise HTTPException(422, "Semantic search requires q")
+    return serialize_page(snapshot, params, recommend_semantic(snapshot["records"], params), mode="hybrid")

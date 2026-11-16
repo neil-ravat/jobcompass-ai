@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -18,6 +19,13 @@ def main():
     args = parser.parse_args()
     try:
         result = ingest(args.data_dir, args.limit, args.max_pages)
+        if os.environ.get("DATABASE_URL"):
+            try:
+                from .database import upsert_snapshot
+                upsert_snapshot(result)
+            except Exception:
+                print("JSON ingestion succeeded, but PostgreSQL sync failed. Check migrations and connection.", file=sys.stderr)
+                return 1
     except (requests.RequestException, ValueError, TypeError, KeyError, OSError) as error:
         print(f"Ingestion failed: {error}", file=sys.stderr)
         return 1

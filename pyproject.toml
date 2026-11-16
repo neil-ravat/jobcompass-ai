@@ -13,6 +13,11 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+semantic = ["fastembed>=0.7,<1"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["database: requires a dedicated TEST_DATABASE_URL ending in _test"]

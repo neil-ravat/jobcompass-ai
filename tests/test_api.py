@@ -11,6 +11,7 @@ from jobcompass.store import load_snapshot
 
 @pytest.fixture
 def client(tmp_path, monkeypatch, raw_job):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     now = datetime.now(timezone.utc)
     raw_job["expiryDate"] = int((now + timedelta(days=1)).timestamp())
     row = {**normalize_job(raw_job, now).to_record(), "is_active": True, "status": "open", "status_checked_at": now.isoformat()}
@@ -62,3 +63,16 @@ def test_stale_status_cannot_be_served_as_current(client, tmp_path):
     snapshot["records"][0]["status_checked_at"] = (datetime.now(timezone.utc) - timedelta(minutes=11)).isoformat()
     path.write_text(json.dumps(snapshot))
     assert client.get("/jobs").status_code == 503
+
+
+def test_semantic_missing_query_or_model_is_explicit(client, monkeypatch):
+    from jobcompass import api
+    from jobcompass.semantic import SemanticUnavailable
+    assert client.get("/search").status_code == 422
+    def unavailable(*args):
+        raise SemanticUnavailable("Index not available")
+    monkeypatch.setattr(api, "recommend_semantic", unavailable)
+    response = client.get("/search?q=software")
+    assert response.status_code == 503
+    assert response.json()["code"] == "semantic_unavailable"
+    assert client.get("/recommendations?q=python").status_code == 200

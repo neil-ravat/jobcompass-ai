@@ -15,7 +15,14 @@ class StoreUnavailable(RuntimeError):
 def load_snapshot():
     path = Path(os.environ.get("JOBCOMPASS_DATA_DIR", "data")) / "jobs.json"
     try:
-        snapshot = json.loads(path.read_text())
+        if os.environ.get("DATABASE_URL"):
+            try:
+                from .database import read_snapshot
+                snapshot = read_snapshot()
+            except Exception as error:
+                raise StoreUnavailable("PostgreSQL unavailable or not initialized. Check database configuration and migrations.") from error
+        else:
+            snapshot = json.loads(path.read_text())
         fetched = datetime.fromisoformat(snapshot["feed_fetched_at"])
         now = datetime.now(timezone.utc)
         if fetched.tzinfo is None or not timedelta(0) <= now - fetched < timedelta(hours=24):

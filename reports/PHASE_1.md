@@ -76,5 +76,4 @@ The manager directive permits continuing after this report is delivered.
 
 Run the suite, inspect data/evidence/phase1-api.json and source files, and repeat
 the API request after refreshing job status. This checkpoint has no database or
-semantic retrieval evidence. Git commit identity is recorded after checkpoint
-creation; no push or remote deployment is claimed.
+semantic retrieval evidence. Implementation checkpoint: `10b88d5`. No push or remote deployment is claimed.
