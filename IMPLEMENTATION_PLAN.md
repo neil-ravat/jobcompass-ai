@@ -2,8 +2,9 @@
 
 Updated 17 November 2026. Target: working, tested, interview-ready MVP by
 23 November 2026. The latest manager directive supersedes the initial teaching-only
-workflow and earlier deferred PostgreSQL/AI scope. Codex may implement and advance
-sequentially after reporting each checkpoint. Do not push without authorization.
+workflow and earlier deferred PostgreSQL/AI scope. The final stabilization
+directive now stops feature progression. The local MVP is ready for independent
+review with the limitations below. Do not push or deploy without authorization.
 
 ## Completed and attempted phases
 
@@ -14,6 +15,7 @@ sequentially after reporting each checkpoint. Do not push without authorization.
 | P2 PostgreSQL and semantic retrieval | 110 tests including real DB queries; three stored jobs/vectors; real hybrid result; commit 4efcacf | Complete |
 | P3 optional LLM query tool | 126 tests; validated tool flow and failures; live missing-key 503; commit f77c7ac | Implemented; successful live LLM call unverified |
 | P4 evaluation and delivery | 136 tests; labeled evaluation, refresh/demo scripts, live endpoint checks, Docker configuration validation | Local delivery verified; container build/deployment unverified |
+| S1 final stabilization | 136 tests in existing and clean environments; fresh PostgreSQL/pgvector/model initialization; Docker build and local endpoint checks; repeated evaluation and Git exclusions | Ready for independent local review; larger corpus awaits permitted refresh |
 
 ## Non-negotiable data rules
 
@@ -38,13 +40,19 @@ worker shares the daily feed and ten-minute status caches.
 
 ## Remaining verification and exact next work
 
-1. Configure a valid LLM key only if a live agent demonstration is required;
-   execute one bounded query and verify its interpretation against hard constraints.
-2. At the next permitted daily feed refresh, ingest a broader real corpus, then
-   obtain independent relevance judgments and repeat evaluation. Current labels
-   are Codex-assigned on three listings and cannot establish general quality.
-3. Optionally build and run the provided container configuration. It has only
-   passed configuration parsing; no remote deployment or push is authorized.
+1. Independent review is the next checkpoint, not another feature milestone.
+   Reproduce the README demo and inspect reports/FINAL_STABILIZATION.md.
+2. The verified feed was fetched 16 November at 21:24:54.988908 UTC. Its next
+   permitted refresh is 18 November at 02:54:54.988908 IST. The existing worker
+   requests 20 jobs on one page then, provided it remains running. Expansion was
+   not forced during stabilization; three actual jobs remain in the corpus.
+   Review new relevance labels independently and rerun evaluation after growth;
+   current Codex-authored labels are unreviewed and fingerprints will reject a
+   changed corpus. Current scores do not establish general retrieval quality.
+3. A successful live LLM call remains optional and unverified. Missing-key 503
+   behavior passed locally and in Docker; delivery does not depend on a key.
+   Containers were built and verified locally; remote deployment is unverified
+   and no push or deployment is authorized.
 4. Walk through the code and tests for interview understanding. No user-written
    Python was submitted in these milestones; implementation was Codex-generated.
 
@@ -57,5 +65,5 @@ implemented behavior, changed files, functions/endpoints/database changes, actua
 commands/results, limitations, decisions, authorship, interview concepts and exact
 next work. End with Evidence Needed for Verification. Never infer completion from
 file existence. Reports: MILESTONE_1_REPORT.md and reports/PHASE_1.md through
-reports/PHASE_4.md. README.md reproduces the local demo; docs/INTERVIEW.md explains
+reports/PHASE_4.md and reports/FINAL_STABILIZATION.md. README.md reproduces the local demo; docs/INTERVIEW.md explains
 its implementation. Repository-wide working instructions are in AGENTS.md.

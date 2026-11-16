@@ -5,10 +5,15 @@ It combines FastAPI, explicit eligibility filters, explainable ranking,
 PostgreSQL/pgvector, and local MiniLM semantic retrieval. An optional OpenAI tool
 interprets natural-language queries; Python still enforces constraints.
 
-**Verified:** 136 tests passed, including four real PostgreSQL tests. Live API,
-source ingestion, database writes, and semantic retrieval were exercised with
-three real jobs. The optional LLM success path is **not live-verified** because
-no key is configured. Docker configuration was validated, not built or deployed.
+**Ready for independent local review:** the final stabilization pass reproduced
+136 passing tests, including four real PostgreSQL tests, in both the existing
+environment and a clean installation. A fresh database, pgvector and downloaded
+MiniLM model initialized successfully. The Docker images built and the local
+Compose API passed health, jobs, recommendations and semantic-search checks.
+The corpus still contains three real jobs; expansion awaits the daily refresh.
+The optional LLM success path is **not live-verified** because no key is configured.
+See the [final stabilization handoff](reports/FINAL_STABILIZATION.md) for exact
+commands, results and limitations. No remote deployment is claimed.
 
 ## Open the running demo
 
@@ -37,8 +42,11 @@ setup downloads the MiniLM ONNX weights. Later inference runs locally. Ctrl+C in
 the launcher terminal stops the API and its worker.
 
 The first captured feed contains three jobs. The normal refresh configuration is
-20 jobs on one page; it takes effect at the next daily feed refresh. Output always
+20 jobs on one page; it takes effect at the next daily feed refresh, no earlier
+than **18 November 2026, 02:54:55 IST** for the verified cache. Output always
 reports the actual cached scope. No sample or fabricated job records are loaded.
+Do not delete or change cache timestamps to force an early refresh. The worker
+must remain running for a later refresh to happen automatically.
 
 ## Run with PostgreSQL
 
@@ -46,6 +54,8 @@ This machine already has PostgreSQL 16.14 and pgvector 0.8.2 installed, an isola
 cluster at `data/postgres`, and application/test databases. To reuse it:
 
 ```bash
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"  # this Mac's PostgreSQL binaries
+pg_ctl -D data/postgres status || pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
 export DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass
 .venv/bin/python -m jobcompass.manage migrate
 bash scripts/demo.sh
@@ -139,10 +149,12 @@ TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/
 ```
 
 Without TEST_DATABASE_URL, four database tests skip. With the isolated database:
-**136 passed**. One upstream Starlette/httpx deprecation warning remains. Database
+**136 passed** in both final verification environments (0.54s existing, 3.32s
+clean). These are observed test durations, not application performance benchmarks.
+One upstream Starlette/httpx deprecation warning remains. Database
 tests require a database name ending in `_test` and clear only their test tables.
 Source and LLM traffic is mocked in tests; separate live checks are documented in
-[the handoffs](reports/PHASE_4.md).
+[the final handoff](reports/FINAL_STABILIZATION.md).
 
 `evaluations/real_jobs.json` contains Codex-assigned relevance judgments over three
 real listings: three positive queries and one country-ineligible query. Labels
@@ -201,12 +213,16 @@ Read [the interview walkthrough](docs/INTERVIEW.md) for function-level explanati
 
 ## Container configuration
 
-Dockerfile and compose.yaml are included. `docker compose config --quiet` passed
-with a validation-only placeholder password. **The image was not built and the
-container stack was not launched; no remote deployment is claimed.**
+The existing Dockerfile and compose.yaml were built and run locally during final
+stabilization. Verification used an isolated Compose project, a new database
+volume, and a temporary override mapping the API to localhost:8766 to avoid the
+native demo on :8765. All four core endpoints passed. The temporary stack was
+then removed; no remote deployment is claimed. Tested container versions were
+Python 3.14.10, PostgreSQL 16.16 and pgvector 0.8.7. Base image tags can change.
 
-For an optional container run, stop the native demo first, set a URL-safe
-POSTGRES_PASSWORD in the environment or ignored .env, then:
+For a container run, start Docker Desktop/the Docker daemon, stop the native demo
+and its worker first, set a URL-safe POSTGRES_PASSWORD in the environment or
+ignored .env, then:
 
 ```bash
 docker compose build
@@ -214,7 +230,13 @@ docker compose up -d db
 docker compose run --rm api python -m jobcompass.manage migrate
 docker compose run --rm api python -m jobcompass.worker --once --semantic
 docker compose up -d api refresh
+curl -fsS http://127.0.0.1:8765/health
 ```
+
+Use `docker compose down` to stop the container demo; its database volume is
+retained. The clean verification reused the existing genuine job cache to respect
+source refresh limits. Native verification downloaded fresh model weights;
+container verification reused those weights and ran real query inference.
 
 ## Remaining limits
 
@@ -226,5 +248,6 @@ resume uploads or job-application automation. Do not expose it publicly without 
 separate deployment review.
 
 Milestone reports: [M1](MILESTONE_1_REPORT.md), [P1](reports/PHASE_1.md),
-[P2](reports/PHASE_2.md), [P3](reports/PHASE_3.md), [P4](reports/PHASE_4.md).
+[P2](reports/PHASE_2.md), [P3](reports/PHASE_3.md), [P4](reports/PHASE_4.md),
+[final stabilization](reports/FINAL_STABILIZATION.md).
 All implementation code was generated by Codex under the user's direction.

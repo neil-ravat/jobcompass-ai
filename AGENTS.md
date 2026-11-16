@@ -26,3 +26,8 @@
   a separate approval is not required when acceptance passes. Record blockers
   and continue valuable independent work. Create local commits at verified
   checkpoints, excluding secrets/runtime data; do not push.
+- The final MVP stabilization directive supersedes further phase progression:
+  after the bounded verification pass and handoff, mark the local MVP ready for
+  independent review with unverified limitations retained. Do not start another
+  feature milestone unless there is a material correctness issue. Corpus growth
+  must wait for the next permitted source refresh; an LLM key is optional.
