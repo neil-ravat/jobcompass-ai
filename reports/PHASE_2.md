@@ -99,3 +99,5 @@ Rerun the database-enabled suite against the dedicated *_test database. Inspect
 migrations and data/evidence/phase2-api.json, then query counts/vector dimensions
 in the local application database. The live result does not establish relevance
 quality; labeled evaluation is P4. No remote deployment or push is claimed.
+
+Implementation checkpoint: `4efcacf` (local only).

@@ -9,8 +9,19 @@ from fastapi.responses import JSONResponse
 from .search import SearchParams, filter_jobs, rank_jobs
 from .store import StoreUnavailable, load_snapshot
 from .semantic import SemanticUnavailable, recommend_semantic
+from .agent import AgentRequest, AgentUnavailable, InvalidToolCall, interpret_query
 
 app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations.")
+
+
+@app.exception_handler(AgentUnavailable)
+async def agent_unavailable(request, error):
+    return JSONResponse(status_code=503, content={"detail": str(error), "code": "llm_unavailable"})
+
+
+@app.exception_handler(InvalidToolCall)
+async def invalid_tool_call(request, error):
+    return JSONResponse(status_code=502, content={"detail": str(error), "code": "invalid_tool_call"})
 
 
 @app.exception_handler(SemanticUnavailable)
@@ -69,3 +80,14 @@ def semantic_search(params: Annotated[SearchParams, Query()], snapshot: dict = D
     if not params.q:
         raise HTTPException(422, "Semantic search requires q")
     return serialize_page(snapshot, params, recommend_semantic(snapshot["records"], params), mode="hybrid")
+
+
+@app.post("/agent/query")
+def agent_query(request: AgentRequest):
+    params = interpret_query(request)
+    snapshot = load_snapshot()
+    if request.mode == "hybrid":
+        results = serialize_page(snapshot, params, recommend_semantic(snapshot["records"], params), mode="hybrid")
+    else:
+        results = result_page(snapshot, params, recommendations=True)
+    return {"interpreted_query": params.model_dump(mode="json"), "tool": "search_jobs", "results": results}
