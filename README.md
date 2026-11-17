@@ -5,12 +5,15 @@ compare keyword and semantic matches, inspect eligibility and ranking explanatio
 and follow original application links. The Streamlit frontend uses FastAPI over
 HTTP; it never connects directly to PostgreSQL or a job source.
 
-**Frontend milestone F1 verified:** 156 tests passed (136 existing backend tests
-plus 20 new tests). Live Chrome checks covered real keyword/semantic search,
+**F1 final UI polish verified:** 162 tests passed (136 original backend tests,
+20 F1 tests and six timestamp/content-formatting tests). Live Chrome checks covered real keyword/semantic search,
 country and salary filtering, validation, selection, reset, original links and
-responsive keyboard navigation. [Desktop screenshot](docs/screenshots/frontend-desktop.png),
-[narrow results](docs/screenshots/frontend-narrow-results.png),
-[narrow details](docs/screenshots/frontend-narrow-details.png).
+responsive keyboard navigation. [Desktop screenshot](docs/screenshots/frontend-polish-desktop.png),
+[390px results](docs/screenshots/frontend-polish-390-results.png),
+[390px details](docs/screenshots/frontend-polish-390-details.png),
+[320px details](docs/screenshots/frontend-polish-320-details.png).
+See the [F1 final UI polish handoff](reports/FRONTEND_F1_POLISH.md) for exact
+verification evidence and remaining limitations.
 
 ## Start the integrated application
 
@@ -40,12 +43,17 @@ Then open [localhost:8501](http://127.0.0.1:8501). The API remains at
 Ctrl+C in each launcher terminal stops that service; PostgreSQL stays running.
 
 The UI has three desktop panels and switches between results and details on
-narrow screens. Open the sidebar control at the top left for filters on mobile.
+narrow screens. Open **Search & filters** at the top left for filters on mobile.
 Filters apply together when **Search jobs** is pressed; **Clear filters** resets
 them. "Role in job title" matches title words, while the keyword field can search
 skills in descriptions. A salary minimum needs both currency and pay period.
 Unreported pay and eligibility remain unknown, and country eligibility does not
 confirm work authorization. Scores are backend ranking values, not percentages.
+The read-only summary identifies the applied search mode and filters. Draft form
+edits do not change that summary until submitted. Source-feed fetch time and job
+source/status/expiry timestamps come from the API and are displayed in UTC; they
+are distinct from each other. Descriptions retain source words with paragraph,
+list-item and subheading spacing.
 
 The frontend extra is pinned to Streamlit 1.67.x because its scoped CSS uses the
 framework's rendered structure. A plain-text `description` field was added to job
@@ -220,7 +228,7 @@ TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/
 ```
 
 Without TEST_DATABASE_URL, four database tests skip. With the isolated database:
-**156 passed** after F1 (1.19s), including 20 new frontend/description tests. S1
+**162 passed** after final UI polish (1.22s), including 26 frontend/description tests. S1
 previously reproduced its 136-test baseline in both existing and clean environments.
 These are observed test durations, not application performance benchmarks.
 One upstream Starlette/httpx deprecation warning remains. Database

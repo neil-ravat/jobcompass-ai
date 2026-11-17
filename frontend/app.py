@@ -7,7 +7,7 @@ import pycountry
 import streamlit as st
 
 from frontend import client
-from frontend.presentation import date_label, locations, safe_url, salary, text, timezones
+from frontend.presentation import description_html, locations, safe_url, salary, text, timestamp_label, timezones
 
 st.set_page_config(page_title="JobCompass · Find your next role", page_icon=":material/explore:", layout="wide")
 st.html(Path(__file__).with_name("styles.css"))
@@ -117,19 +117,25 @@ except client.APIError as error:
 
 source_url = safe_url(page["attribution"].get("url"))
 source_label = page["attribution"].get("label", "Job source")
-st.html('<div class="source-strip"><span class="connection"><span aria-hidden="true">●</span> Job service connected</span>'
+st.html(f'<div class="source-strip"><span class="feed-timestamp">Source feed fetched: {text(timestamp_label(page.get("feed_fetched_at")))}</span>'
         + (f'<a href="{text(source_url)}" target="_blank" rel="noopener noreferrer">{text(source_label)}</a>' if source_url else text(source_label)) + '</div>')
 
-summary = [applied["mode"]]
-if applied["q"].strip(): summary.append('“' + applied["q"].strip() + '”')
+summary = []
+if applied["q"].strip(): summary.append('Keywords: “' + applied["q"].strip() + '”')
 if applied["role"].strip(): summary.append("Title: " + applied["role"].strip())
-if applied["country"]: summary.append(countries[applied["country"]])
-if applied["remote_only"]: summary.append("Remote")
-if applied["min_salary"] is not None: summary.append(f"Minimum {applied['min_salary']:g}")
-if applied["currency"]: summary.append(applied["currency"])
-if applied["salary_period"]: summary.append(applied["salary_period"].capitalize())
+if applied["country"]: summary.append("Country: " + countries[applied["country"]])
+if applied["remote_only"]: summary.append("Remote only")
+if applied["min_salary"] is not None:
+    summary.append("Minimum salary: " + salary({"salary_min": applied["min_salary"], "salary_max": applied["min_salary"],
+                                               "currency": applied["currency"], "salary_period": applied["salary_period"]}))
+else:
+    if applied["currency"]: summary.append("Currency: " + applied["currency"])
+    if applied["salary_period"]: summary.append("Pay period: " + applied["salary_period"].capitalize())
 with st.container(key="applied_filters"):
-    tags(summary)
+    st.html(f'<div class="search-mode-summary"><span>Search mode</span><strong>{text(applied["mode"])}</strong></div>'
+            '<div class="applied-summary"><span class="summary-label">Applied filters</span><div class="tags">'
+            + (''.join(f'<span>{text(value)}</span>' for value in summary) if summary else '<span>No filters applied</span>')
+            + '</div></div>')
 
 with st.container(key="mobile_nav"):
     st.segmented_control("Workspace", ["Results", "Job details"], key="mobile_view", selection_mode="single", width="stretch")
@@ -144,9 +150,9 @@ with st.container(key="workspace"):
     results_column, detail_column = st.columns([0.92, 1.35], gap="large")
     with results_column, st.container(key="results"):
         st.html(f'<div class="section-heading"><h2>{page["total"]} {"job" if page["total"] == 1 else "jobs"}</h2>'
-                f'<span>{"Best matches first" if has_query else "Recently updated"}</span></div>')
+                f'<span>{"Best matches first" if has_query else "By source update"}</span></div>')
         if not page.get("feed_complete"):
-            paragraph("From the current source sample. More listings arrive with source refreshes.", "small-note")
+            paragraph("Partial source feed", "small-note")
         if not items:
             st.html('<div class="empty-state"><h3>No jobs match these filters</h3><p>Try a broader keyword, remove the title filter, or clear salary constraints.</p></div>')
             if applied["country"]:
@@ -194,7 +200,7 @@ with st.container(key="workspace"):
                 if description and description.split("\n", 1)[0].strip().casefold() == "about the role":
                     description = description.partition("\n")[2].lstrip()
                 if description:
-                    st.html(f'<div class="description">{text(description)}</div>')
+                    st.html(f'<div class="description">{description_html(description)}</div>')
                 else:
                     st.info("The source did not provide a description for this job.")
                 if not row.get("description"):
@@ -225,9 +231,9 @@ with st.container(key="workspace"):
                 paragraph("Timezones: " + timezones(row))
                 st.caption("Country eligibility does not confirm work authorization. Check the description for residency, travel and other requirements.")
                 st.html('<h3 class="subheading">Source information</h3>')
-                paragraph("Source updated: " + date_label(row.get("source_updated_at")))
-                paragraph("Listed expiry: " + date_label(row.get("expires_at")))
-                paragraph("Status checked: " + (row.get("status_checked_at") or "Not provided"))
+                paragraph("Source updated: " + timestamp_label(row.get("source_updated_at")))
+                paragraph("Listed expiry: " + timestamp_label(row.get("expires_at")))
+                paragraph("Status checked: " + timestamp_label(row.get("status_checked_at")))
                 if row.get("validation_issues"):
                     st.warning("Some source fields could not be verified and are shown as unknown.")
                     for issue in row["validation_issues"]:

@@ -18,6 +18,7 @@ do not push, deploy or start another feature milestone without authorization.
 | P4 evaluation and delivery | 136 tests; labeled evaluation, refresh/demo scripts, live endpoint checks, Docker configuration validation | Local delivery verified; container build/deployment unverified |
 | S1 final stabilization | 136 tests in existing and clean environments; fresh PostgreSQL/pgvector/model initialization; Docker build and local endpoint checks; repeated evaluation and Git exclusions | Ready for independent local review; larger corpus awaits permitted refresh |
 | F1 professional frontend | 156 tests; real HTTP browser searches/filters; desktop and narrow screenshots; backend image rebuild | Integrated Streamlit application verified locally |
+| F1 final UI polish | 162 tests; 12 real browser checks at 1440px, 390px and 320px; labeled filter access, actual timestamps and source-preserving typography | Bounded corrections verified; backend unchanged |
 
 ## Non-negotiable data rules
 
@@ -46,8 +47,8 @@ descriptions while retaining the existing fields and ranking behavior.
 
 ## Remaining verification and exact next work
 
-1. Independent review of the integrated application is the next checkpoint.
-   Reproduce the README demo and inspect reports/FRONTEND_F1.md alongside S1.
+1. Independent review of the polished integrated application is the next checkpoint.
+   Reproduce the README demo and inspect reports/FRONTEND_F1_POLISH.md alongside F1/S1.
 2. The verified feed was fetched 16 November at 21:24:54.988908 UTC. Its next
    permitted refresh is 18 November at 02:54:54.988908 IST. The existing worker
    requests 20 jobs on one page then, provided it remains running. Expansion was
@@ -71,6 +72,7 @@ implemented behavior, changed files, functions/endpoints/database changes, actua
 commands/results, limitations, decisions, authorship, interview concepts and exact
 next work. End with Evidence Needed for Verification. Never infer completion from
 file existence. Reports: MILESTONE_1_REPORT.md and reports/PHASE_1.md through
-reports/PHASE_4.md, reports/FINAL_STABILIZATION.md and reports/FRONTEND_F1.md.
+reports/PHASE_4.md, reports/FINAL_STABILIZATION.md, reports/FRONTEND_F1.md and
+reports/FRONTEND_F1_POLISH.md.
 README.md reproduces the local demo; docs/INTERVIEW.md explains
 its implementation. Repository-wide working instructions are in AGENTS.md.

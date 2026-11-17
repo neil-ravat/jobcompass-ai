@@ -6,6 +6,9 @@ html, body, [data-testid="stApp"], input, button, textarea, select {
 [data-testid="stMainBlockContainer"] { max-width: 1660px; padding: 2.5rem 2.5rem 3rem; }
 [data-testid="stHeader"] { background: transparent; height: 2.5rem; }
 [data-testid="stAppDeployButton"], [data-testid="stMainMenu"] { display: none; }
+/* Label the existing native drawer control; do not duplicate the filter form. */
+[data-testid="stExpandSidebarButton"] { width: auto; min-height: 34px; padding: 4px 9px; gap: 5px; border: 1px solid #dfe5e7; border-radius: 5px; background: #fff; }
+[data-testid="stExpandSidebarButton"]::after { content: "Search & filters"; font: 500 12px "Avenir Next", "Segoe UI", sans-serif; color: #286351; white-space: nowrap; }
 [data-testid="stSidebar"] { background: #f7f8fa; border-right: 1px solid #dfe5e7; }
 [data-testid="stSidebar"][data-collapsed="false"] { min-width: 280px; max-width: 280px; }
 [data-testid="stSidebar"][data-collapsed="true"] { border: none; }
@@ -32,10 +35,15 @@ button { transition: none !important; }
 .page-heading p { color: #637078; font-size: 14px; }
 .source-strip { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #637078; font-size: 11px; padding: 5px 0 15px; border-bottom: 1px solid #dfe5e7; }
 .source-strip a { color: #637078; }
-.connection span { color: #286351; font-size: 9px; margin-right: 5px; }
+.feed-timestamp { font-variant-numeric: tabular-nums; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tags span { font-size: 11px; line-height: 1.5; color: #536168; background: #f4f6f7; border: 1px solid #e7ebed; border-radius: 4px; padding: 3px 7px; overflow-wrap: anywhere; }
 .st-key-applied_filters { padding: 6px 0 12px; }
+.search-mode-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; margin-bottom: 9px; }
+.search-mode-summary > span, .summary-label { color: #637078; font-size: 11px; }
+.search-mode-summary strong { color: #286351; font-weight: 600; }
+.applied-summary { display: flex; align-items: baseline; gap: 8px; }
+.summary-label { flex: none; }
 .st-key-workspace { border-top: 1px solid #dfe5e7; padding-top: 20px; }
 .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .section-heading h2 { font-size: 17px; font-weight: 600; margin: 0; padding: 0; }
@@ -67,7 +75,11 @@ button { transition: none !important; }
 [data-baseweb="tab-list"] { gap: 20px; }
 [data-baseweb="tab"] { font-size: 12px; padding: 0 0 10px; }
 .subheading { font-size: 15px; font-weight: 600; margin: 13px 0 8px; padding: 0; letter-spacing: -.01em; }
-.description { color: #39444b; font-size: 14px; line-height: 1.75; white-space: pre-line; overflow-wrap: anywhere; max-width: 76ch; }
+.description { color: #39444b; font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; max-width: 68ch; }
+.description p { white-space: pre-line; margin: 0 0 1rem; font-size: inherit; line-height: inherit; }
+.description .description-item { padding-left: 1em; text-indent: -1em; margin-bottom: .6rem; }
+.description .description-heading { margin-top: 1.4rem; margin-bottom: .65rem; font-weight: 600; color: #252c32; }
+.description p:last-child { margin-bottom: 0; }
 .muted { color: #637078; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .score-summary, .score-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e5e9eb; font-size: 13px; }
 .score-summary strong { font-size: 28px; font-weight: 600; color: #286351; }
@@ -93,6 +105,7 @@ button { transition: none !important; }
   .page-heading h1 { font-size: 23px; }
   .page-heading p { font-size: 12px; }
   .source-strip { font-size: 10px; padding-bottom: 12px; }
+  .applied-summary { align-items: flex-start; flex-direction: column; gap: 5px; }
   .detail-title { font-size: 23px; }
   .description { font-size: 14px; }
   [data-baseweb="tab-list"] { gap: 15px; }

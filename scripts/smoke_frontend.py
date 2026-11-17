@@ -14,6 +14,24 @@ import requests
 from playwright.sync_api import expect, sync_playwright
 
 
+def source_time(value):
+    return datetime.fromisoformat(value).astimezone(timezone.utc).strftime('%d %b %Y, %H:%M:%S UTC')
+
+
+def check_filter_button(page):
+    button = page.get_by_role('button', name='Expand sidebar', exact=True)
+    expect(button).to_be_visible()
+    assert button.evaluate('(e) => getComputedStyle(e, "::after").content') == '"Search & filters"'
+    assert button.bounding_box()['width'] >= 110
+    return button
+
+
+def capture(page, path):
+    # Streamlit drawer/tab transitions must finish before recording a visual state.
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(path))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', default='http://127.0.0.1:8501')
@@ -40,8 +58,22 @@ def main():
         expect(page.locator('.st-key-results').get_by_role('heading', name=f"{baseline['total']} {'job' if baseline['total'] == 1 else 'jobs'}", exact=True)).to_be_visible()
         expect(page.get_by_role('link', name='Apply on Himalayas')).to_have_attribute('href', first['application_url'])
         expect(page.get_by_role('link', name='Apply on Himalayas')).to_have_attribute('target', '_blank')
+        expect(page.locator('.feed-timestamp')).to_have_text('Source feed fetched: ' + source_time(baseline['feed_fetched_at']))
+        expect(page.locator('.search-mode-summary')).to_have_text('Search modeKeyword match')
+        expect(page.locator('.applied-summary')).to_contain_text('Applied filters')
+        assert page.locator('.st-key-applied_filters').get_by_role('button').count() == 0
+        evidence['checks'].append('Actual UTC feed timestamp and read-only active-mode/applied-filter summary')
+        expected_description = first['description']
+        if expected_description.split('\n', 1)[0].strip().casefold() == 'about the role':
+            expected_description = expected_description.partition('\n')[2].lstrip()
+        assert page.locator('.description').inner_text().split() == expected_description.split()
+        assert page.locator('.description p').count() > 1
+        evidence['checks'].append('Description formatting preserves every source word')
+        page.get_by_role('tab', name='Eligibility & source').click()
+        expect(page.get_by_text('Source updated: ' + source_time(first['source_updated_at']), exact=True)).to_be_visible()
+        page.get_by_role('tab', name='Overview', exact=True).click()
         assert not page.get_by_role('textbox', name=re.compile('chat', re.I)).count()
-        page.screenshot(path=str(args.output / 'desktop.png'))
+        capture(page, args.output / 'desktop.png')
         evidence['screenshots'].append('desktop.png')
         evidence['checks'].append('Initial real results and original external application URL')
 
@@ -55,9 +87,11 @@ def main():
         # Use an actual title as the query, without hardcoding a job record.
         query = first['title']
         page.get_by_label('Keywords or skills', exact=True).fill(query)
+        expect(page.locator('.applied-summary')).not_to_contain_text(query)
         page.get_by_role('button', name='Search jobs').click()
         expected = requests.get(args.api + '/recommendations', params={'q': query, 'remote_only': True}, timeout=30).json()
         expect(page.locator('.st-key-applied_filters')).to_contain_text(query)
+        expect(page.locator('.applied-summary')).to_contain_text('Keywords:')
         expect(page.locator('.section-heading h2')).to_have_text(f"{expected['total']} {'job' if expected['total'] == 1 else 'jobs'}")
         page.get_by_role('tab', name='Why this match').click()
         expect(page.locator('.score-summary strong')).to_have_text(f"{expected['items'][0]['score']:.2f}")
@@ -71,7 +105,7 @@ def main():
         semantic.raise_for_status()
         expect(page.locator('.score-summary strong')).to_have_text(f"{semantic.json()['items'][0]['score']:.2f}")
         expect(page.locator('.score-row').filter(has_text='Semantic')).to_be_visible()
-        page.screenshot(path=str(args.output / 'desktop-match.png'))
+        capture(page, args.output / 'desktop-match.png')
         evidence['screenshots'].append('desktop-match.png')
         evidence['checks'].append('Semantic mode and exact backend component explanation')
 
@@ -84,6 +118,7 @@ def main():
         country = requests.get(args.api + '/recommendations', params={'country': 'IN', 'remote_only': True}, timeout=20).json()
         expect(page.locator('.section-heading h2')).to_have_text(f"{country['total']} {'job' if country['total'] == 1 else 'jobs'}")
         evidence['checks'].append('Country filter total matches the real API')
+        expect(page.locator('.applied-summary')).to_contain_text('Country: India')
         page.get_by_role('button', name='Clear filters').click()
         page.get_by_text('Salary constraints', exact=True).click()
         page.get_by_role('spinbutton', name='Minimum advertised salary').fill('100000')
@@ -97,11 +132,12 @@ def main():
         salary = requests.get(args.api + '/recommendations', params={'min_salary': 100000, 'currency': 'USD', 'salary_period': 'annual'}, timeout=20).json()
         expect(page.locator('.section-heading h2')).to_have_text(f"{salary['total']} {'job' if salary['total'] == 1 else 'jobs'}")
         evidence['checks'].append('Salary units validation and valid salary filtering match the real API')
+        expect(page.locator('.applied-summary')).to_contain_text('Minimum salary: USD 100,000 / year')
         page.get_by_role('button', name='Clear filters').click()
         page.get_by_label('Keywords or skills', exact=True).fill('zzjobcompassnomatchzz')
         page.get_by_role('button', name='Search jobs').click()
         expect(page.get_by_role('heading', name='No jobs match these filters')).to_be_visible()
-        page.screenshot(path=str(args.output / 'desktop-empty.png'))
+        capture(page, args.output / 'desktop-empty.png')
         evidence['screenshots'].append('desktop-empty.png')
         page.get_by_role('button', name='Reset search', exact=True).click()
         expect(page.locator('.st-key-select_job_0')).to_be_visible()
@@ -111,16 +147,16 @@ def main():
         mobile.goto(args.url, wait_until='networkidle')
         expect(mobile.locator('.st-key-select_job_0')).to_be_visible(timeout=20000)
         expect(mobile.locator('.st-key-detail')).not_to_be_visible()
-        expect(mobile.get_by_role('button', name='Expand sidebar', exact=True)).to_be_visible()
-        mobile.screenshot(path=str(args.output / 'narrow-results.png'))
+        check_filter_button(mobile)
+        capture(mobile, args.output / 'narrow-results.png')
         evidence['screenshots'].append('narrow-results.png')
         mobile.locator('.st-key-select_job_0').click()
         expect(mobile.locator('.st-key-detail')).to_be_visible()
         expect(mobile.locator('.st-key-results')).not_to_be_visible()
-        mobile.screenshot(path=str(args.output / 'narrow-details.png'))
+        capture(mobile, args.output / 'narrow-details.png')
         evidence['screenshots'].append('narrow-details.png')
         assert not mobile.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Horizontal overflow'
-        mobile.get_by_role('button', name='Expand sidebar', exact=True).click()
+        check_filter_button(mobile).click()
         expect(mobile.get_by_role('button', name='Collapse sidebar', exact=True)).to_be_visible()
         mobile.get_by_label('Role in job title', exact=True).fill(first['title'].split()[0])
         mobile.get_by_role('button', name='Search jobs').click()
@@ -132,9 +168,26 @@ def main():
         mobile.keyboard.press('Enter')
         expect(mobile.locator('.st-key-detail')).to_be_visible()
         evidence['checks'].append('Keyboard activation selects a real job')
-        mobile.set_viewport_size({'width': 320, 'height': 740})
-        assert not mobile.evaluate('document.documentElement.scrollWidth > innerWidth'), '320px horizontal overflow'
-        evidence['checks'].append('320px layout has no horizontal document overflow')
+        smallest = browser.new_page(viewport={'width': 320, 'height': 740}, is_mobile=True, device_scale_factor=1)
+        smallest.goto(args.url, wait_until='networkidle')
+        expect(smallest.locator('.st-key-select_job_0')).to_be_visible(timeout=20000)
+        check_filter_button(smallest).click()
+        expect(smallest.get_by_role('button', name='Search jobs')).to_be_visible()
+        capture(smallest, args.output / '320-filters.png')
+        evidence['screenshots'].append('320-filters.png')
+        smallest.get_by_role('button', name='Collapse sidebar', exact=True).click()
+        check_filter_button(smallest)
+        capture(smallest, args.output / '320-results.png')
+        evidence['screenshots'].append('320-results.png')
+        smallest.locator('.st-key-select_job_0').click()
+        expect(smallest.locator('.st-key-detail')).to_be_visible()
+        expect(smallest.locator('.st-key-results')).not_to_be_visible()
+        capture(smallest, args.output / '320-details.png')
+        evidence['screenshots'].append('320-details.png')
+        assert not smallest.evaluate('document.documentElement.scrollWidth > innerWidth'), '320px horizontal overflow'
+        assert smallest.locator('[data-testid="stMainBlockContainer"]').evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'), '320px content clipping'
+        expect(smallest.get_by_role('link', name='Apply on Himalayas')).to_be_visible()
+        evidence['checks'].append('320px: labeled filters open, results/details switch works, Apply visible, no horizontal overflow')
         assert not errors, errors
         evidence['browser_errors'] = errors
         browser.close()

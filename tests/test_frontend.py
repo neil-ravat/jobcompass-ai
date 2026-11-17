@@ -1,6 +1,8 @@
 """Synthetic responses are confined to tests; browser smoke uses real HTTP data."""
 
 from datetime import datetime, timedelta, timezone
+from html import unescape
+import re
 from pathlib import Path
 from time import sleep as real_sleep
 import time
@@ -12,7 +14,7 @@ from fastapi.testclient import TestClient
 AppTest = pytest.importorskip("streamlit.testing.v1", reason="Install the frontend extra for UI tests").AppTest
 
 from frontend import client
-from frontend.presentation import locations, safe_url, salary, text, timezones
+from frontend.presentation import description_html, locations, safe_url, salary, text, timestamp_label, timezones
 from jobcompass.api import app
 from jobcompass import api as api_module
 from jobcompass.descriptions import plain_description
@@ -43,6 +45,26 @@ def test_display_helpers_preserve_unknowns_and_original_application_url():
     assert locations({'location_restrictions': []}) == 'No country restriction'
     assert timezones({'timezone_restrictions': [5.5, -3.75]}) == 'UTC+05:30, UTC-03:45'
     assert salary({'salary_min': '1000.50', 'salary_max': '2000', 'currency': 'INR', 'salary_period': 'monthly'}) == 'INR 1,000.50–2,000 / month'
+
+
+@pytest.mark.parametrize('value, expected', [
+    ('2026-11-17T02:54:54+05:30', '16 Nov 2026, 21:24:54 UTC'),
+    ('2026-11-16T21:24:54.988908Z', '16 Nov 2026, 21:24:54 UTC'),
+    (None, 'Not provided'), ('invalid', 'Not provided'),
+    ('2026-11-16T21:24:54', 'Not provided'),
+])
+def test_timestamp_format_is_explicit_and_does_not_guess_timezone(value, expected):
+    assert timestamp_label(value) == expected
+
+
+def test_description_paragraphs_preserve_source_words_and_escape_markup():
+    source = 'Build services.\nKeep these words.\n\nRequirements:\n\n• Python & SQL\n\n• <script>example()</script>'
+    markup = description_html(source)
+    visible_text = unescape(re.sub(r'<[^>]+>', ' ', markup))
+    assert visible_text.split() == source.split()
+    assert '<script>' not in markup
+    assert markup.count('class="description-item"') == 2
+    assert 'class="description-heading"' in markup
 
 
 def test_filter_translation_does_not_invent_constraints():

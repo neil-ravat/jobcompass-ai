@@ -1,8 +1,9 @@
 """Formatting only; never infer salaries, scores or eligibility."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import escape
+import re
 from urllib.parse import urlsplit
 
 
@@ -45,11 +46,28 @@ def salary(row):
     return f"{row.get('currency') or 'Currency unspecified'} {amount}" + (f" / {unit}" if unit else " / period unspecified")
 
 
-def date_label(value):
+def timestamp_label(value):
+    """Show source timestamps in one explicit zone; never guess a missing zone."""
     try:
-        return datetime.fromisoformat(value).strftime("%d %b %Y")
+        stamp = datetime.fromisoformat(value)
+        if stamp.tzinfo is None:
+            return "Not provided"
+        return stamp.astimezone(timezone.utc).strftime("%d %b %Y, %H:%M:%S UTC")
     except (TypeError, ValueError):
         return "Not provided"
+
+
+def description_html(value):
+    """Format escaped source paragraphs without summarizing or rewriting them."""
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", value.strip()):
+        style = ""
+        if block.lstrip().startswith("•"):
+            style = ' class="description-item"'
+        elif "\n" not in block and len(block) <= 100 and block.rstrip().endswith(":"):
+            style = ' class="description-heading"'
+        paragraphs.append(f"<p{style}>{text(block)}</p>")
+    return "".join(paragraphs)
 
 
 def timezones(row):
