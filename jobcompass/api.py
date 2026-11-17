@@ -10,6 +10,7 @@ from .search import SearchParams, filter_jobs, rank_jobs
 from .store import StoreUnavailable, load_snapshot
 from .semantic import SemanticUnavailable, recommend_semantic
 from .agent import AgentRequest, AgentUnavailable, InvalidToolCall, interpret_query
+from .descriptions import plain_description
 
 app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations. Jobs sourced from [Himalayas](https://himalayas.app). Apply using each original application_url.")
 
@@ -54,7 +55,8 @@ def serialize_page(snapshot, params, ranked, mode="deterministic"):
     items = []
     for row in ranked[params.offset:params.offset + params.limit]:
         # Serve normalized evidence; avoid shipping full raw HTML/provider payloads.
-        items.append({key: value for key, value in row.items() if key not in {"raw_payload", "description_html"}})
+        items.append({**{key: value for key, value in row.items() if key not in {"raw_payload", "description_html"}},
+                      "description": plain_description(row)})
     return {
         "items": items, "total": len(ranked), "limit": params.limit, "offset": params.offset, "mode": mode,
         "attribution": snapshot["attribution"], "feed_fetched_at": snapshot["feed_fetched_at"],

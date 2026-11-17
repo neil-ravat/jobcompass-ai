@@ -1,11 +1,82 @@
 # JobCompass
 
+Open the [JobCompass application](http://127.0.0.1:8501) to search real jobs,
+compare keyword and semantic matches, inspect eligibility and ranking explanations,
+and follow original application links. The Streamlit frontend uses FastAPI over
+HTTP; it never connects directly to PostgreSQL or a job source.
+
+**Frontend milestone F1 verified:** 156 tests passed (136 existing backend tests
+plus 20 new tests). Live Chrome checks covered real keyword/semantic search,
+country and salary filtering, validation, selection, reset, original links and
+responsive keyboard navigation. [Desktop screenshot](docs/screenshots/frontend-desktop.png),
+[narrow results](docs/screenshots/frontend-narrow-results.png),
+[narrow details](docs/screenshots/frontend-narrow-details.png).
+
+## Start the integrated application
+
+The existing native services were left running during delivery. To reproduce
+them after stopping any previous copy, use two terminals:
+
+```bash
+# Terminal 1: backend + source/status refresh worker
+cd /Users/neil/Documents/ChatGPT/jobcompass
+uv sync --locked --all-extras
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+pg_ctl -D data/postgres status || pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
+export DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass
+.venv/bin/python -m jobcompass.manage migrate
+bash scripts/demo.sh
+```
+
+```bash
+# Terminal 2: frontend; no DATABASE_URL or OpenAI key required here
+cd /Users/neil/Documents/ChatGPT/jobcompass
+JOBCOMPASS_API_URL=http://127.0.0.1:8765 .venv/bin/python -m streamlit run frontend/app.py
+```
+
+Then open [localhost:8501](http://127.0.0.1:8501). The API remains at
+[localhost:8765/docs](http://127.0.0.1:8765/docs). On this delivery run, logs are
+`data/demo.log` and `data/frontend.log`. Use one refresh writer per data directory.
+Ctrl+C in each launcher terminal stops that service; PostgreSQL stays running.
+
+The UI has three desktop panels and switches between results and details on
+narrow screens. Open the sidebar control at the top left for filters on mobile.
+Filters apply together when **Search jobs** is pressed; **Clear filters** resets
+them. "Role in job title" matches title words, while the keyword field can search
+skills in descriptions. A salary minimum needs both currency and pay period.
+Unreported pay and eligibility remain unknown, and country eligibility does not
+confirm work authorization. Scores are backend ranking values, not percentages.
+
+The frontend extra is pinned to Streamlit 1.67.x because its scoped CSS uses the
+framework's rendered structure. A plain-text `description` field was added to job
+responses; existing fields, filters, ranking and storage are unchanged. The UI
+does not show the optional credential-dependent LLM endpoint. Both core search
+modes work without a key. If the API reports stale/unavailable data, the UI clears
+the job view and offers retry; it does not substitute sample listings. Passive
+pages do not continuously poll: interacting or retrying reads the API again.
+
+Run the full regression suite and actual-browser checks:
+
+```bash
+TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/bin/python -m pytest -q
+.venv/bin/python scripts/smoke_frontend.py
+```
+
+The browser check requires an installed Google Chrome and running local services.
+It uses real API results, saves screenshots/evidence under `data/evidence/frontend`,
+and does not submit applications or fetch employer pages. Synthetic responses are
+used only in unit/AppTest tests. The Docker image remains backend-only; the optional
+Streamlit app is run separately using the command above. F1 rebuilt the backend
+image successfully; it did not repeat the earlier full Compose runtime exercise.
+
+## Backend overview
+
 A working local job-recommendation backend using **real Himalayas listings**.
 It combines FastAPI, explicit eligibility filters, explainable ranking,
 PostgreSQL/pgvector, and local MiniLM semantic retrieval. An optional OpenAI tool
 interprets natural-language queries; Python still enforces constraints.
 
-**Ready for independent local review:** the final stabilization pass reproduced
+**S1 backend verification:** the stabilization pass reproduced
 136 passing tests, including four real PostgreSQL tests, in both the existing
 environment and a clean installation. A fresh database, pgvector and downloaded
 MiniLM model initialized successfully. The Docker images built and the local
@@ -149,8 +220,9 @@ TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/
 ```
 
 Without TEST_DATABASE_URL, four database tests skip. With the isolated database:
-**136 passed** in both final verification environments (0.54s existing, 3.32s
-clean). These are observed test durations, not application performance benchmarks.
+**156 passed** after F1 (1.19s), including 20 new frontend/description tests. S1
+previously reproduced its 136-test baseline in both existing and clean environments.
+These are observed test durations, not application performance benchmarks.
 One upstream Starlette/httpx deprecation warning remains. Database
 tests require a database name ending in `_test` and clear only their test tables.
 Source and LLM traffic is mocked in tests; separate live checks are documented in

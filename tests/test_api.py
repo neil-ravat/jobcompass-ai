@@ -35,6 +35,7 @@ def test_endpoints_return_normalized_jobs_and_attribution(client):
     assert job["country_eligibility"] == "eligible" and job["score"] >= 60
     assert job["application_url"].endswith("?utm_source=api")
     assert "raw_payload" not in job and "description_html" not in job
+    assert isinstance(job["description"], str)
 
 
 def test_pagination_and_empty_matches(client):

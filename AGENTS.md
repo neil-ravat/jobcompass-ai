@@ -31,3 +31,8 @@
   independent review with unverified limitations retained. Do not start another
   feature milestone unless there is a material correctness issue. Corpus growth
   must wait for the next permitted source refresh; an LLM key is optional.
+- The subsequent explicit Professional Frontend Design & Integration directive
+  authorizes F1: a Streamlit frontend over the existing FastAPI HTTP contracts,
+  necessary additive integration changes, tests and visual verification. It
+  supersedes the feature freeze only for this milestone. Preserve backend logic,
+  stop after the tested frontend handoff, and do not expand scope or push.

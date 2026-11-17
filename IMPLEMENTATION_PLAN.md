@@ -2,9 +2,10 @@
 
 Updated 17 November 2026. Target: working, tested, interview-ready MVP by
 23 November 2026. The latest manager directive supersedes the initial teaching-only
-workflow and earlier deferred PostgreSQL/AI scope. The final stabilization
-directive now stops feature progression. The local MVP is ready for independent
-review with the limitations below. Do not push or deploy without authorization.
+workflow and earlier deferred PostgreSQL/AI scope. After S1 acceptance, the user
+explicitly authorized one frontend milestone (F1). The integrated local MVP is
+ready for independent review with the limitations below. Stop after F1 delivery;
+do not push, deploy or start another feature milestone without authorization.
 
 ## Completed and attempted phases
 
@@ -16,6 +17,7 @@ review with the limitations below. Do not push or deploy without authorization.
 | P3 optional LLM query tool | 126 tests; validated tool flow and failures; live missing-key 503; commit f77c7ac | Implemented; successful live LLM call unverified |
 | P4 evaluation and delivery | 136 tests; labeled evaluation, refresh/demo scripts, live endpoint checks, Docker configuration validation | Local delivery verified; container build/deployment unverified |
 | S1 final stabilization | 136 tests in existing and clean environments; fresh PostgreSQL/pgvector/model initialization; Docker build and local endpoint checks; repeated evaluation and Git exclusions | Ready for independent local review; larger corpus awaits permitted refresh |
+| F1 professional frontend | 156 tests; real HTTP browser searches/filters; desktop and narrow screenshots; backend image rebuild | Integrated Streamlit application verified locally |
 
 ## Non-negotiable data rules
 
@@ -26,8 +28,9 @@ rate limits, hide expired/closed/unverified jobs, and never retire missing recor
 from a partial or failed feed. Never substitute fabricated data after an error.
 
 Himalayas is the primary source. Greenhouse/Adzuna remain deferred until the
-primary MVP is validated more broadly. No LinkedIn/Indeed scraping, elaborate
-frontend, distributed worker infrastructure or multi-agent framework is planned.
+primary MVP is validated more broadly. No LinkedIn/Indeed scraping, distributed
+worker infrastructure or multi-agent framework is planned. F1 is the separately
+authorized Streamlit frontend, not a new ingestion or ranking architecture.
 
 ## Current architecture
 
@@ -37,11 +40,14 @@ MiniLM embeddings are stored locally and in pgvector. FastAPI hard filters prece
 lexical or semantic scoring. The optional LLM produces a validated search tool
 call; explicit user constraints and final ranking stay in Python. A single refresh
 worker shares the daily feed and ten-minute status caches.
+Streamlit calls the HTTP API and presents its results; it never reads PostgreSQL,
+local job files or embedding artifacts. API responses add readable plain-text
+descriptions while retaining the existing fields and ranking behavior.
 
 ## Remaining verification and exact next work
 
-1. Independent review is the next checkpoint, not another feature milestone.
-   Reproduce the README demo and inspect reports/FINAL_STABILIZATION.md.
+1. Independent review of the integrated application is the next checkpoint.
+   Reproduce the README demo and inspect reports/FRONTEND_F1.md alongside S1.
 2. The verified feed was fetched 16 November at 21:24:54.988908 UTC. Its next
    permitted refresh is 18 November at 02:54:54.988908 IST. The existing worker
    requests 20 jobs on one page then, provided it remains running. Expansion was
@@ -65,5 +71,6 @@ implemented behavior, changed files, functions/endpoints/database changes, actua
 commands/results, limitations, decisions, authorship, interview concepts and exact
 next work. End with Evidence Needed for Verification. Never infer completion from
 file existence. Reports: MILESTONE_1_REPORT.md and reports/PHASE_1.md through
-reports/PHASE_4.md and reports/FINAL_STABILIZATION.md. README.md reproduces the local demo; docs/INTERVIEW.md explains
+reports/PHASE_4.md, reports/FINAL_STABILIZATION.md and reports/FRONTEND_F1.md.
+README.md reproduces the local demo; docs/INTERVIEW.md explains
 its implementation. Repository-wide working instructions are in AGENTS.md.

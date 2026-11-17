@@ -11,11 +11,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "httpx>=0.27,<1"]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1", "playwright>=1.56,<2"]
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
 semantic = ["fastembed>=0.7,<1"]
+frontend = ["streamlit>=1.67,<1.68"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
