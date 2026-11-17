@@ -15,7 +15,18 @@ responsive keyboard navigation. [Desktop screenshot](docs/screenshots/frontend-p
 See the [F1 final UI polish handoff](reports/FRONTEND_F1_POLISH.md) for exact
 verification evidence and remaining limitations.
 
+**SEC1 environment security verified:** 172 tests pass with the private `.env`,
+SCRAM-authenticated PostgreSQL and unchanged core behavior. Native services and an
+isolated Compose instance passed live checks. See [configuration and GitHub
+safety](docs/ENVIRONMENT.md) and the [security handoff](reports/SECURITY_ENVIRONMENT.md).
+
 ## Start the integrated application
+
+The private root `.env` now configures the native backend and frontend. It is
+ignored by Git, excluded from Docker builds and readable/writable only by its
+owner. PostgreSQL uses SCRAM password authentication. The safe public template is
+[.env.example](.env.example); see [environment configuration](docs/ENVIRONMENT.md)
+for every variable, setup instructions and GitHub safety checks.
 
 The existing native services were left running during delivery. To reproduce
 them after stopping any previous copy, use two terminals:
@@ -26,7 +37,6 @@ cd /Users/neil/Documents/ChatGPT/jobcompass
 uv sync --locked --all-extras
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 pg_ctl -D data/postgres status || pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
-export DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass
 .venv/bin/python -m jobcompass.manage migrate
 bash scripts/demo.sh
 ```
@@ -34,7 +44,7 @@ bash scripts/demo.sh
 ```bash
 # Terminal 2: frontend; no DATABASE_URL or OpenAI key required here
 cd /Users/neil/Documents/ChatGPT/jobcompass
-JOBCOMPASS_API_URL=http://127.0.0.1:8765 .venv/bin/python -m streamlit run frontend/app.py
+.venv/bin/python -m streamlit run frontend/app.py
 ```
 
 Then open [localhost:8501](http://127.0.0.1:8501). The API remains at
@@ -66,7 +76,7 @@ pages do not continuously poll: interacting or retrying reads the API again.
 Run the full regression suite and actual-browser checks:
 
 ```bash
-TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/bin/python -m pytest -q
+.venv/bin/python -m pytest -q
 .venv/bin/python scripts/smoke_frontend.py
 ```
 
@@ -111,8 +121,7 @@ Python 3.14.2 was used for verification; the project declares Python >=3.11.
 ```bash
 cd /Users/neil/Documents/ChatGPT/jobcompass
 uv sync --locked --all-extras
-unset DATABASE_URL
-bash scripts/demo.sh
+DATABASE_URL= bash scripts/demo.sh
 ```
 
 The launcher performs one real ingestion/status refresh, builds or reuses local
@@ -135,7 +144,6 @@ cluster at `data/postgres`, and application/test databases. To reuse it:
 ```bash
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"  # this Mac's PostgreSQL binaries
 pg_ctl -D data/postgres status || pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
-export DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass
 .venv/bin/python -m jobcompass.manage migrate
 bash scripts/demo.sh
 ```
@@ -145,14 +153,15 @@ only a **new** project cluster and create the databases:
 
 ```bash
 mkdir -p data
-initdb -D data/postgres --username=jobcompass --auth-local=trust --auth-host=trust --encoding=UTF8 --locale=C
+initdb -D data/postgres --username=jobcompass --auth-local=scram-sha-256 --auth-host=scram-sha-256 --pwprompt --encoding=UTF8 --locale=C
 pg_ctl -D data/postgres -l data/postgres.log -o "-h 127.0.0.1 -p 55432 -k /tmp" start
-createdb -h 127.0.0.1 -p 55432 -U jobcompass jobcompass
-createdb -h 127.0.0.1 -p 55432 -U jobcompass jobcompass_test
+createdb -h 127.0.0.1 -p 55432 -U jobcompass -W jobcompass
+createdb -h 127.0.0.1 -p 55432 -U jobcompass -W jobcompass_test
 ```
 
-The native cluster uses loopback-only development trust authentication. The container
-configuration below uses a password. To stop the native database later:
+For a fresh setup, enter the same private password in these local prompts and in
+`PGPASSWORD` in `.env`. Both native and container connections require a password;
+native PostgreSQL listens only on loopback. To stop the native database later:
 `pg_ctl -D data/postgres stop`.
 
 `migrate` applies transactional, checksum-verified SQL migrations. With DATABASE_URL
@@ -203,7 +212,8 @@ matches return 200 with an empty list; unavailable/stale data returns 503.
 
 Set OPENAI_API_KEY in your local environment and, optionally, OPENAI_MODEL (default
 `gpt-5.4-mini`). No credentials are needed for the core API or local embeddings.
-The application does not automatically load .env; export variables yourself.
+Native entry points load the root `.env` without executing shell code. Exported
+values override it. Keep optional keys unset unless genuine credentials are available.
 
 ```bash
 curl -X POST http://127.0.0.1:8765/agent/query \
@@ -222,13 +232,14 @@ quality remain unverified. [Official function-calling documentation](https://dev
 
 ```bash
 .venv/bin/python -m pytest -q
-TEST_DATABASE_URL=postgresql://jobcompass@127.0.0.1:55432/jobcompass_test .venv/bin/python -m pytest -q
 .venv/bin/python -m jobcompass.evaluate --k 1
 .venv/bin/python -m jobcompass.evaluate --k 3
 ```
 
+Tests load only the dedicated test URL and PostgreSQL password from `.env`.
 Without TEST_DATABASE_URL, four database tests skip. With the isolated database:
-**162 passed** after final UI polish (1.22s), including 26 frontend/description tests. S1
+**172 passed** after SEC1 (1.20s), including ten new environment-loading/launcher
+cases and the 26 frontend/description tests. S1
 previously reproduced its 136-test baseline in both existing and clean environments.
 These are observed test durations, not application performance benchmarks.
 One upstream Starlette/httpx deprecation warning remains. Database
@@ -301,10 +312,13 @@ then removed; no remote deployment is claimed. Tested container versions were
 Python 3.14.10, PostgreSQL 16.16 and pgvector 0.8.7. Base image tags can change.
 
 For a container run, start Docker Desktop/the Docker daemon, stop the native demo
-and its worker first, set a URL-safe POSTGRES_PASSWORD in the environment or
-ignored .env, then:
+and its worker first. Compose reads the private root `.env` and injects its
+`PGPASSWORD` at runtime; the database URL contains no password. The database service
+receives it as `POSTGRES_PASSWORD`. It initializes a new volume only; changing `.env`
+does not rotate a password in an existing database volume. Then:
 
 ```bash
+docker compose --env-file .env config --quiet
 docker compose build
 docker compose up -d db
 docker compose run --rm api python -m jobcompass.manage migrate

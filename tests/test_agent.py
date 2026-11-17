@@ -1,4 +1,5 @@
 import json
+import secrets
 from unittest.mock import Mock
 
 import pytest
@@ -11,7 +12,7 @@ from jobcompass.search import SearchParams
 
 @pytest.fixture
 def provider(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-only-key")
+    monkeypatch.setenv("OPENAI_API_KEY", secrets.token_urlsafe(24))  # Offline mock only.
     args = {"q": "python", "role": None, "country": "US", "remote_only": False,
             "min_salary": None, "currency": None, "salary_period": None, "limit": 10}
     payload = {"status": "completed", "output": [{"type": "function_call", "name": "search_jobs", "arguments": json.dumps(args)}]}

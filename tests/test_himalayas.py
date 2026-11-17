@@ -1,6 +1,7 @@
 """Offline request, validation, and retry contract checks."""
 
 from unittest.mock import Mock
+import secrets
 
 import pytest
 import requests
@@ -126,11 +127,12 @@ def test_present_invalid_next_cursor_is_not_end_of_feed(http_get, cursor):
 
 
 def test_cursor_and_optional_key_are_forwarded(http_get, monkeypatch):
-    monkeypatch.setenv("HIMALAYAS_API_KEY", "test-only-key")
+    token = secrets.token_urlsafe(24)  # Offline mock only, never sent to a source.
+    monkeypatch.setenv("HIMALAYAS_API_KEY", token)
     himalayas.fetch_page(2, "opaque-token")
     http_get.assert_called_once_with(
         himalayas.JOBS_ENDPOINT, timeout=10, params={"limit": 2, "cursor": "opaque-token"},
-        headers={"Authorization": "Bearer test-only-key"},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
 

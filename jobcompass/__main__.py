@@ -9,13 +9,16 @@ from pathlib import Path
 import requests
 
 from .ingest import ingest
+from .environment import load_environment
+
+load_environment()
 
 
 def main():
     parser = argparse.ArgumentParser(description="Ingest real remote jobs from Himalayas.")
     parser.add_argument("--limit", type=int, default=20, help="Jobs per page, 1–20 (default: 20)")
     parser.add_argument("--max-pages", type=int, default=1, help="Page cap (default: 1; usually a partial feed)")
-    parser.add_argument("--data-dir", type=Path, default=Path("data"))
+    parser.add_argument("--data-dir", type=Path, default=Path(os.environ.get("JOBCOMPASS_DATA_DIR", "data")))
     args = parser.parse_args()
     try:
         result = ingest(args.data_dir, args.limit, args.max_pages)

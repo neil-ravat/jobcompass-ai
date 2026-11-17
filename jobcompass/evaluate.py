@@ -8,6 +8,9 @@ from pathlib import Path
 
 from .search import SearchParams, filter_jobs, rank_jobs
 from .semantic import content_hash, recommend_semantic
+from .environment import load_environment
+
+load_environment()
 
 
 def precision_at_k(grades, k):

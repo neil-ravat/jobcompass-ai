@@ -6,6 +6,8 @@ workflow and earlier deferred PostgreSQL/AI scope. After S1 acceptance, the user
 explicitly authorized one frontend milestone (F1). The integrated local MVP is
 ready for independent review with the limitations below. Stop after F1 delivery;
 do not push, deploy or start another feature milestone without authorization.
+The subsequent explicit SEC1 security directive authorizes private environment
+configuration and publication-safety verification only; it does not authorize a push.
 
 ## Completed and attempted phases
 
@@ -19,6 +21,7 @@ do not push, deploy or start another feature milestone without authorization.
 | S1 final stabilization | 136 tests in existing and clean environments; fresh PostgreSQL/pgvector/model initialization; Docker build and local endpoint checks; repeated evaluation and Git exclusions | Ready for independent local review; larger corpus awaits permitted refresh |
 | F1 professional frontend | 156 tests; real HTTP browser searches/filters; desktop and narrow screenshots; backend image rebuild | Integrated Streamlit application verified locally |
 | F1 final UI polish | 162 tests; 12 real browser checks at 1440px, 390px and 320px; labeled filter access, actual timestamps and source-preserving typography | Bounded corrections verified; backend unchanged |
+| SEC1 environment security | 172 tests; private mode-600 .env; SCRAM PostgreSQL; native/Compose checks; Git history and build-context audit | Local configuration verified; no publication performed |
 
 ## Non-negotiable data rules
 
@@ -47,8 +50,8 @@ descriptions while retaining the existing fields and ranking behavior.
 
 ## Remaining verification and exact next work
 
-1. Independent review of the polished integrated application is the next checkpoint.
-   Reproduce the README demo and inspect reports/FRONTEND_F1_POLISH.md alongside F1/S1.
+1. Independent review of SEC1 configuration and the polished application is next.
+   Reproduce the README demo and inspect reports/SECURITY_ENVIRONMENT.md alongside F1/S1.
 2. The verified feed was fetched 16 November at 21:24:54.988908 UTC. Its next
    permitted refresh is 18 November at 02:54:54.988908 IST. The existing worker
    requests 20 jobs on one page then, provided it remains running. Expansion was

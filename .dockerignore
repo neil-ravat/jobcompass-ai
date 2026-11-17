@@ -1,7 +1,13 @@
-.git
-.venv
-.env
-.env.*
-data
-__pycache__
-.pytest_cache
+# Allow only inputs used by the backend image. Local credentials, logs, tests,
+# frontend configuration, Git history, databases and model caches stay outside.
+**
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!jobcompass/
+jobcompass/**
+!jobcompass/*.py
+!migrations/
+migrations/**
+!migrations/*.sql

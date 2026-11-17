@@ -6,6 +6,10 @@ import os
 import sys
 from pathlib import Path
 
+from .environment import load_environment
+
+load_environment()
+
 
 def main():
     parser = argparse.ArgumentParser()

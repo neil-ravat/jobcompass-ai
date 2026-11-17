@@ -10,6 +10,9 @@ import requests
 
 from .himalayas import RetryDeferred, _retry_delay
 from .ingest import ingest
+from .environment import load_environment
+
+load_environment()
 
 
 def refresh_once(data_dir, limit=20, max_pages=1, semantic=False):

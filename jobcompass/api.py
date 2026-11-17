@@ -11,6 +11,9 @@ from .store import StoreUnavailable, load_snapshot
 from .semantic import SemanticUnavailable, recommend_semantic
 from .agent import AgentRequest, AgentUnavailable, InvalidToolCall, interpret_query
 from .descriptions import plain_description
+from .environment import load_environment
+
+load_environment()
 
 app = FastAPI(title="JobCompass", version="0.2.0", description="Real jobs, explicit constraints, explainable recommendations. Jobs sourced from [Himalayas](https://himalayas.app). Apply using each original application_url.")
 

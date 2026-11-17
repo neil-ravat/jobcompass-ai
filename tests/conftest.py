@@ -1,9 +1,19 @@
 """All tests are offline; synthetic listings exist only in this directory."""
 
 from datetime import datetime, timedelta, timezone
+import os
+from pathlib import Path
 
 import pytest
 import requests
+from dotenv import dotenv_values
+
+# Only the dedicated test database credentials may enter tests. Never load the
+# application's database URL or provider keys into unit/AppTest execution.
+for name, value in dotenv_values(Path(__file__).resolve().parent.parent / ".env", interpolate=False).items():
+    if name in {"TEST_DATABASE_URL", "PGPASSWORD"} and value is not None:
+        os.environ.setdefault(name, value)
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 
 from jobcompass import himalayas
 
@@ -11,6 +21,8 @@ from jobcompass import himalayas
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     monkeypatch.delattr(requests.sessions.Session, "request")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("HIMALAYAS_API_KEY", raising=False)
     monkeypatch.setattr(himalayas, "_wait_for_slot", lambda: None)
     monkeypatch.setattr(himalayas.time, "sleep", lambda delay: None)

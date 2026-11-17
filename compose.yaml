@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: jobcompass
       POSTGRES_DB: jobcompass
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment or .env}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your environment or private .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,9 +15,11 @@ services:
   api:
     build: .
     ports:
-      - "127.0.0.1:8765:8000"
+      - "127.0.0.1:${JOBCOMPASS_PORT:-8765}:8000"
     environment:
-      DATABASE_URL: postgresql://jobcompass:${POSTGRES_PASSWORD}@db:5432/jobcompass
+      DATABASE_URL: postgresql://jobcompass@db:5432/jobcompass
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your environment or private .env}
+      PYTHON_DOTENV_DISABLED: "1"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
     volumes:
@@ -29,7 +31,10 @@ services:
     build: .
     command: ["python", "-m", "jobcompass.worker", "--semantic"]
     environment:
-      DATABASE_URL: postgresql://jobcompass:${POSTGRES_PASSWORD}@db:5432/jobcompass
+      DATABASE_URL: postgresql://jobcompass@db:5432/jobcompass
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your environment or private .env}
+      PYTHON_DOTENV_DISABLED: "1"
+      HIMALAYAS_API_KEY: ${HIMALAYAS_API_KEY:-}
     volumes:
       - ./data:/app/data
     depends_on:

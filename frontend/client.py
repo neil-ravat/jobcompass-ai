@@ -5,6 +5,10 @@ from urllib.parse import urlsplit
 
 import requests
 
+from jobcompass.environment import load_environment
+
+load_environment({"JOBCOMPASS_API_URL"})
+
 ENDPOINTS = {"Keyword match": "/recommendations", "Semantic match": "/search", "Browse jobs": "/jobs"}
 
 
